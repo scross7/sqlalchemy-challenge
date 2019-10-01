@@ -4,7 +4,9 @@ from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
 from flask import Flask, jsonify
-engine = create_engine("sqlite:///hawaii.sqlite")
+import datetime as dt
+from datetime import datetime
+engine = create_engine("sqlite:///Resources/hawaii.sqlite")
 Base = automap_base()
 Base.prepare(engine, reflect=True)
 Measurement = Base.classes.measurement
@@ -16,33 +18,31 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-
     """List of all available api routes."""
-    
+
     return (
         f"Available Routes:<br/>"
-        
-        f" This will return a list of precipitation data"        
+        f"<br/>"
+        f" This will return a list of precipitation data<br/>"
         f"/api/v1.0/precipitation<br/>"
-
-        f" This will return a list of stations"        
+        f"<br/>"
+        f" This will return a list of stations<br/>"
         f"/api/v1.0/stations<br/>"
-        
-        f" This will return a list of temperature data"        
+        f"<br/>"
+        f" This will return a list of temperature data<br/>"
         f"/api/v1.0/tobs<br/>"
-        
-        f" This function called `calc_temps` will accept start date and start/end date in the format '%Y-%m-%d'<br/>" 
-        f" and return the minimum, average, and maximum temperatures for that range of dates" 
-        f"/api/v1.0/<start>` and `/api/v1.0/<start>/<end><br/>"
-       
+        f"<br/>"
+        f" This will accept start date and start/end date in the format '%Y-%m-%d'<br/>"
+        f" and return the minimum, average, and maximum temperatures for that range of dates<br/>"
+        f"/api/v1.0/start and /api/v1.0/start/end<br/>"
+
     )
 
 
 @app.route("/api/v1.0/precipitation")
 def precipitation():
-    
     """Dictionary using 'date' as key and 'preciptation' as value."""
-        
+
     session = Session(engine)
     results = session.query(Measurement.date, Measurement.prcp).all()
     session.close()
@@ -63,10 +63,16 @@ def stations():
     """JSON List of all stations."""
 
     session = Session(engine)
-    results = session.query(Station.station.distinct())
+    results = session.query(Station.name.distinct())
     session.close()
-    stations = list(np.ravel(results))
-    return jsonify(stations)
+
+    station = []
+    for name in results:
+        station_dict = {}
+        station_dict["name"] = name
+        station.append(station_dict)
+
+    return jsonify(station)
 
 
 @app.route("/api/v1.0/tobs")
@@ -75,8 +81,6 @@ def tobs():
     """JSON List of Temperature Observations from the previous year."""
 
     session = Session(engine)
-    results = session.query(Table.column).all()
-    session.close()
 
     # Calculate the date 1 year ago from the last data point in the database ('2017-08-23')
     d = session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
@@ -90,6 +94,8 @@ def tobs():
     # Sort the dataframe by date
     columns = [Measurement.date, Measurement.tobs]
     results = session.query(*columns).filter(Measurement.date >= d_yr)
+
+    session.close()
     
     date_tobs = []
     for date, tobs in results:
@@ -101,21 +107,12 @@ def tobs():
     return jsonify(date_tobs)
 
 
-@app.route("/api/v1.0/<start>` and `/api/v1.0/<start>/<end>")
-def calc_temps(start_date, end_date):
-
-    """TMIN, TAVG, and TMAX from start date to most recent date.
-    
-    Args:
-        start_date (string): A date string in the format %Y-%m-%d
-        
-    Returns JSON List:
-        TMIN, TAVE, and TMAX
-    """
+@app.route("/api/v1.0/<start1>")
+def calc_temps1(start1):
 
     session = Session(engine)
     results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
-        filter(Measurement.date >= start_date).all()
+        filter(Measurement.date >= start1).all()
     session.close()
     
     tobs_desc = []
@@ -128,8 +125,8 @@ def calc_temps(start_date, end_date):
 
     return jsonify(tobs_desc)
 
-@app.route("/api/v1.0/<start>` and `/api/v1.0/<start>/<end>")
-def calc_temps(start_date, end_date):
+@app.route("/api/v1.0/<start>/<end>")
+def calc_temps(start, end):
 
     """TMIN, TAVG, and TMAX from start to end date.
     
@@ -143,7 +140,7 @@ def calc_temps(start_date, end_date):
 
     session = Session(engine)
     results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
-        filter(Measurement.date >= start_date).filter(Measurement.date <= end_date).all()
+        filter(Measurement.date >= start).filter(Measurement.date <= end).all()
     session.close()
     
     tobs_desc = []
